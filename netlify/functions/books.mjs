@@ -20,7 +20,7 @@ export default async (request) => {
       const q = clean(url.searchParams.get('q'), 100);
       const requestedId = clean(url.searchParams.get('id'), 50);
       const grades = (url.searchParams.get('grades') || url.searchParams.get('grade') || '').split(',').map(x=>clean(x,20)).filter(x=>['3-4','5-6','middle+'].includes(x));
-      const tag = clean(url.searchParams.get('tag'), 80);
+      const tag = clean(url.searchParams.get('tag'), 80).replace(/^#+/, '').trim();
       const author = clean(url.searchParams.get('author'), 100);
       const publisher = clean(url.searchParams.get('publisher'), 100);
       const browse = clean(url.searchParams.get('browse'), 20);
@@ -44,8 +44,9 @@ export default async (request) => {
           AND (${author}='' OR b.author ILIKE ${'%'+author+'%'})
           AND (${publisher}='' OR b.publisher ILIKE ${'%'+publisher+'%'})
           AND (NOT ${mine} OR b.created_by=${viewer?.id || '00000000-0000-0000-0000-000000000000'}::uuid)
-          AND (${initialPattern}='' OR (CASE WHEN ${browse}='author' THEN b.author WHEN ${browse}='publisher' THEN b.publisher ELSE b.title END) ~ ${'^'+initialPattern})
-          AND (${tag}='' OR EXISTS (SELECT 1 FROM book_tags bt JOIN tags t ON t.id=bt.tag_id WHERE bt.book_id=b.id AND t.normalized_name=LOWER(${tag})))
+          AND (${initialPattern}='' OR (CASE WHEN ${browse}='author' THEN b.author WHEN ${browse}='publisher' THEN b.publisher WHEN ${browse}='tag' THEN '' ELSE b.title END) ~ ${'^'+initialPattern})
+          AND (${initialPattern}='' OR ${browse}<>'tag' OR EXISTS (SELECT 1 FROM book_tags ibt JOIN tags it ON it.id=ibt.tag_id WHERE ibt.book_id=b.id AND regexp_replace(it.name, '^#+', '') ~ ${'^'+initialPattern}))
+          AND (${tag}='' OR EXISTS (SELECT 1 FROM book_tags bt JOIN tags t ON t.id=bt.tag_id WHERE bt.book_id=b.id AND LOWER(regexp_replace(t.normalized_name, '^#+', ''))=LOWER(${tag})))
         ORDER BY b.created_at DESC LIMIT ${limit} OFFSET ${offset}`;
       const total = rows[0]?.total_count || 0;
       return json({ items: rows.map(({ total_count, ...b }) => b), total, page, pageSize: limit, pages: Math.ceil(total / limit) });
