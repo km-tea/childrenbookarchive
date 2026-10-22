@@ -54,7 +54,7 @@ export default async (request) => {
           AND (${author}='' OR b.author ILIKE ${'%'+author+'%'})
           AND (${publisher}='' OR b.publisher ILIKE ${'%'+publisher+'%'})
           AND (NOT ${mine} OR b.created_by=${viewer?.id || '00000000-0000-0000-0000-000000000000'}::uuid)
-          AND (${initialPattern}='' OR (CASE WHEN ${browse}='author' THEN b.author WHEN ${browse}='publisher' THEN b.publisher WHEN ${browse}='tag' THEN '' ELSE b.title END) ~ ${'^'+initialPattern})
+          AND (${browse}='tag' OR ${initialPattern}='' OR (CASE WHEN ${browse}='author' THEN b.author WHEN ${browse}='publisher' THEN b.publisher ELSE b.title END) ~ ${'^'+initialPattern})
           AND (${browse}<>'tag' OR ${tag}<>'' OR ${initialPattern}='' OR EXISTS (SELECT 1 FROM book_tags ibt JOIN tags it ON it.id=ibt.tag_id WHERE ibt.book_id=b.id AND regexp_replace(BTRIM(it.name), '^#+', '') ~ ${'^'+initialPattern}))
           AND (${browse}<>'tag' OR EXISTS (SELECT 1 FROM book_tags bt JOIN tags t ON t.id=bt.tag_id WHERE bt.book_id=b.id AND LOWER(BTRIM(REGEXP_REPLACE(t.name, '^#+', ''))) = LOWER(BTRIM(REGEXP_REPLACE(${tag}, '^#+', '')))))
         ORDER BY b.created_at DESC LIMIT ${limit} OFFSET ${offset}`;
@@ -79,6 +79,14 @@ export default async (request) => {
     if (!title || !author || !publisher || !bookUrl || grades.length === 0 || tags.length === 0) return json({ message: '제목, 글 작가, 출판사, 대상 학년, 온라인 서점 주소, 주제어 1개 이상은 필수입니다.' }, 400);
     if (!validHttpUrl(bookUrl)) return json({ message: '온라인 서점 주소는 http 또는 https 주소여야 합니다.' }, 400);
     if (coverUrl && !validHttpUrl(coverUrl)) return json({ message: '표지 주소 형식이 올바르지 않습니다.' }, 400);
+
+    // Friendly duplicate check (the unique index remains the final race-safe guard).
+    const duplicates = await sql`SELECT id FROM books
+      WHERE LOWER(REGEXP_REPLACE(BTRIM(title), '\\s+', ' ', 'g')) = LOWER(REGEXP_REPLACE(BTRIM(${title}), '\\s+', ' ', 'g'))
+        AND LOWER(REGEXP_REPLACE(BTRIM(author), '\\s+', ' ', 'g')) = LOWER(REGEXP_REPLACE(BTRIM(${author}), '\\s+', ' ', 'g'))
+        AND (${request.method === 'PUT' ? id : ''} = '' OR id::text <> ${request.method === 'PUT' ? id : ''})
+      LIMIT 1`;
+    if (duplicates.length) return json({ message: '같은 제목과 글 작가의 도서가 이미 등록되어 있습니다.' }, 409);
 
     let book;
     if (request.method === 'POST') {
