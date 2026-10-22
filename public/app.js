@@ -3,7 +3,7 @@ const state = { user: null, page: 1, pages: 1, tag: '', sort: 'new', mode: 'logi
 const gradeNames = { '3-4': '3·4학년', '5-6': '5·6학년', 'middle+': '중학생 이상' };
 const initials = ['ㄱ','ㄴ','ㄷ','ㄹ','ㅁ','ㅂ','ㅅ','ㅇ','ㅈ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
 function selectedGrades(){return [...document.querySelectorAll('input[name="grade-filter"]:checked')].map(x=>x.value)}
-function firstInitial(v=''){const c=String(v).trim().charAt(0);if(!c)return '';const code=c.charCodeAt(0)-44032;if(code>=0&&code<=11171)return initials[Math.floor(code/588)]||'';return c.toUpperCase();}
+function firstInitial(v=''){const c=String(v).trim().charAt(0);if(!c)return '';const code=c.charCodeAt(0)-44032;if(code>=0&&code<=11171){const unicodeInitials=['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];const first=unicodeInitials[Math.floor(code/588)]||'';return ({'ㄲ':'ㄱ','ㄸ':'ㄷ','ㅃ':'ㅂ','ㅆ':'ㅅ','ㅉ':'ㅈ'})[first]||first;}return c.toUpperCase();}
 const esc = (v='') => String(v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const sortKorean = (values) => [...values].sort((a,b)=>String(a).localeCompare(String(b),'ko-KR',{sensitivity:'base'}));
 async function api(url, options={}) {
