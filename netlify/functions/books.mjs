@@ -30,6 +30,15 @@ export default async (request) => {
       const selectedValue = clean(url.searchParams.get('selected'), 250);
       const indexOnly = url.searchParams.get('index') === '1';
       const mine = url.searchParams.get('mine') === '1';
+      // A direct ID lookup must not inherit the current browse/tag/initial filters.
+      // This is used by the edit form and My Page after a book has been registered.
+      if (requestedId) {
+        const one = await sql`
+          SELECT b.id,b.title,b.author,b.publisher,b.grade_band,b.grade_bands,b.book_url,b.summary,b.cover_url,b.isbn13,b.created_at,b.created_by,b.created_by,
+            COALESCE((SELECT json_agg(t.name ORDER BY t.normalized_name) FROM book_tags bt JOIN tags t ON t.id=bt.tag_id WHERE bt.book_id=b.id),'[]'::json) AS tags
+          FROM books b WHERE b.id::text=${requestedId} LIMIT 1`;
+        return json({ items: one });
+      }
       const viewer = mine ? await currentUser(request, sql) : null;
       if (mine && !viewer) return json({ message: '로그인이 필요합니다.' }, 401);
       const page = Math.max(1, Math.min(10000, Number(url.searchParams.get('page')) || 1));
@@ -42,7 +51,7 @@ export default async (request) => {
         return json({ items: values });
       }
       const rows = await sql`
-        SELECT b.id,b.title,b.author,b.publisher,b.grade_band,b.grade_bands,b.book_url,b.summary,b.cover_url,b.isbn13,b.created_at,
+        SELECT b.id,b.title,b.author,b.publisher,b.grade_band,b.grade_bands,b.book_url,b.summary,b.cover_url,b.isbn13,b.created_at,b.created_by,
           COALESCE((SELECT json_agg(t.name ORDER BY t.normalized_name) FROM book_tags bt JOIN tags t ON t.id=bt.tag_id WHERE bt.book_id=b.id),'[]'::json) AS tags,
           COUNT(*) OVER()::int AS total_count
         FROM books b

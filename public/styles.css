@@ -8,3 +8,5 @@
 .archive-stats{display:flex;gap:12px;margin:0 0 12px}.archive-stats>div{display:flex;align-items:baseline;gap:7px;background:#fff;border:1px solid var(--line);border-radius:11px;padding:10px 14px;min-width:0}.archive-stats strong{font-size:20px;color:var(--green)}.archive-stats span{font-size:11px;color:var(--muted)}@media(max-width:600px){.archive-stats{gap:6px}.archive-stats>div{flex:1;display:flex;flex-direction:column;gap:2px;padding:9px}.archive-stats strong{font-size:17px}.archive-stats span{font-size:10px}}
 
 .browse-items{margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}.browse-items .chip{max-width:100%;overflow-wrap:anywhere}
+
+.yes24-item-actions{display:flex;flex-direction:column;align-items:stretch;gap:6px;flex-shrink:0}.yes24-open-link{display:block;text-align:center;text-decoration:none;border:1px solid var(--green);color:var(--green);border-radius:7px;padding:7px;font-size:11px;white-space:nowrap}.yes24-open-link:hover{background:var(--green2)}
