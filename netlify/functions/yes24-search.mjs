@@ -22,10 +22,10 @@ export default async (request) => {
     return Response.json({ message: '검색어는 80자 이내로 입력해 주세요.', items: [] }, { status: 400 });
   }
 
-  const apiKey = process.env.YES24_book_API_KEY;
+  const apiKey = process.env.YES24_API_KEY;
   if (!apiKey) {
-    console.error('Missing YES24_book_API_KEY environment variable');
-    return Response.json({ message: 'Netlify에 YES24_book_API_KEY 환경변수가 설정되어 있는지 확인해 주세요.', items: [] }, { status: 500 });
+    console.error('Missing YES24_API_KEY environment variable');
+    return Response.json({ message: 'Netlify에 YES24_API_KEY 환경변수가 설정되어 있는지 확인해 주세요.', items: [] }, { status: 500 });
   }
 
   const apiUrl = new URL(API_URL);
