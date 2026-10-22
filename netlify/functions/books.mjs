@@ -26,14 +26,21 @@ export default async (request) => {
       const browse = clean(url.searchParams.get('browse'), 20);
       const initial = clean(url.searchParams.get('initial'), 10);
       const initialRanges = {'ㄱ':'[가-깋]','ㄴ':'[나-닣]','ㄷ':'[다-딯]','ㄹ':'[라-맇]','ㅁ':'[마-밓]','ㅂ':'[바-빟]','ㅅ':'[사-싷]','ㅇ':'[아-잏]','ㅈ':'[자-짛]','ㅊ':'[차-칳]','ㅋ':'[카-킿]','ㅌ':'[타-팋]','ㅍ':'[파-핗]','ㅎ':'[하-힣]'};
-      const initialsCode = {'ㄱ':0,'ㄴ':2,'ㄷ':3,'ㄹ':5,'ㅁ':6,'ㅂ':7,'ㅅ':9,'ㅇ':11,'ㅈ':12,'ㅊ':14,'ㅋ':15,'ㅌ':16,'ㅍ':17,'ㅎ':18};
-      const initialPattern = initialRanges[initial] ? '[' + Array.from({length:588}, (_,i)=>String.fromCharCode(0xAC00 + (initialsCode[initial] * 588) + i)).join('') + ']' : '';
-      const browseField = browse === 'author' ? 'author' : browse === 'publisher' ? 'publisher' : 'title';
+      const initialPattern = initialRanges[initial] || '';
+      const selectedValue = clean(url.searchParams.get('selected'), 250);
+      const indexOnly = url.searchParams.get('index') === '1';
       const mine = url.searchParams.get('mine') === '1';
       const viewer = mine ? await currentUser(request, sql) : null;
       if (mine && !viewer) return json({ message: '로그인이 필요합니다.' }, 401);
       const page = Math.max(1, Math.min(10000, Number(url.searchParams.get('page')) || 1));
       const limit = 12, offset = (page - 1) * limit;
+      if (indexOnly) {
+        let values;
+        if (browse === 'author') values = await sql`SELECT BTRIM(author) AS name, COUNT(*)::int AS book_count FROM books WHERE BTRIM(author)<>'' AND (${initialPattern}='' OR BTRIM(author) ~ ${'^'+initialPattern}) GROUP BY BTRIM(author) ORDER BY BTRIM(author)`;
+        else if (browse === 'publisher') values = await sql`SELECT BTRIM(publisher) AS name, COUNT(*)::int AS book_count FROM books WHERE BTRIM(publisher)<>'' AND (${initialPattern}='' OR BTRIM(publisher) ~ ${'^'+initialPattern}) GROUP BY BTRIM(publisher) ORDER BY BTRIM(publisher)`;
+        else values = await sql`SELECT BTRIM(title) AS name, COUNT(*)::int AS book_count FROM books WHERE BTRIM(title)<>'' AND (${initialPattern}='' OR BTRIM(title) ~ ${'^'+initialPattern}) GROUP BY BTRIM(title) ORDER BY BTRIM(title)`;
+        return json({ items: values });
+      }
       const rows = await sql`
         SELECT b.id,b.title,b.author,b.publisher,b.grade_band,b.grade_bands,b.book_url,b.summary,b.cover_url,b.isbn13,b.created_at,
           COALESCE((SELECT json_agg(t.name ORDER BY t.normalized_name) FROM book_tags bt JOIN tags t ON t.id=bt.tag_id WHERE bt.book_id=b.id),'[]'::json) AS tags,
@@ -41,13 +48,15 @@ export default async (request) => {
         FROM books b
         WHERE (${requestedId}='' OR b.id::text=${requestedId})
           AND (${q}='' OR b.title ILIKE ${'%'+q+'%'} OR b.author ILIKE ${'%'+q+'%'})
+          AND (${selectedValue}='' OR (CASE WHEN ${browse}='author' THEN BTRIM(b.author) WHEN ${browse}='publisher' THEN BTRIM(b.publisher) ELSE BTRIM(b.title) END)=${selectedValue})
+          AND (${browse}='all' OR (${browse}='tag' AND (${tag}<>'' OR ${initial}='')) OR (${browse} IN ('author','publisher','initial') AND ${selectedValue}<>''))
           AND (${grades.length}::int=0 OR COALESCE(NULLIF(b.grade_bands,ARRAY[]::text[]),ARRAY[b.grade_band]) && ${grades}::text[])
           AND (${author}='' OR b.author ILIKE ${'%'+author+'%'})
           AND (${publisher}='' OR b.publisher ILIKE ${'%'+publisher+'%'})
           AND (NOT ${mine} OR b.created_by=${viewer?.id || '00000000-0000-0000-0000-000000000000'}::uuid)
           AND (${initialPattern}='' OR (CASE WHEN ${browse}='author' THEN b.author WHEN ${browse}='publisher' THEN b.publisher WHEN ${browse}='tag' THEN '' ELSE b.title END) ~ ${'^'+initialPattern})
-          AND (${initialPattern}='' OR ${browse}<>'tag' OR EXISTS (SELECT 1 FROM book_tags ibt JOIN tags it ON it.id=ibt.tag_id WHERE ibt.book_id=b.id AND regexp_replace(it.name, '^#+', '') ~ ${'^'+initialPattern}))
-          AND (${tag}='' OR EXISTS (SELECT 1 FROM book_tags bt JOIN tags t ON t.id=bt.tag_id WHERE bt.book_id=b.id AND (LOWER(regexp_replace(regexp_replace(t.normalized_name, '^#+', ''), '\s+', ' ', 'g'))=LOWER(regexp_replace(${tag}, '\s+', ' ', 'g')) OR LOWER(regexp_replace(t.name, '^#+', ''))=LOWER(${tag}))))
+          AND (${browse}<>'tag' OR ${tag}<>'' OR ${initialPattern}='' OR EXISTS (SELECT 1 FROM book_tags ibt JOIN tags it ON it.id=ibt.tag_id WHERE ibt.book_id=b.id AND regexp_replace(BTRIM(it.name), '^#+', '') ~ ${'^'+initialPattern}))
+          AND (${tag}='' OR EXISTS (SELECT 1 FROM book_tags bt JOIN tags t ON t.id=bt.tag_id WHERE bt.book_id=b.id AND (LOWER(BTRIM(regexp_replace(t.normalized_name, '^#+', ''))) = LOWER(BTRIM(regexp_replace(${tag}, '^#+', ''))) OR LOWER(BTRIM(regexp_replace(t.name, '^#+', ''))) = LOWER(BTRIM(regexp_replace(${tag}, '^#+', ''))))))
         ORDER BY b.created_at DESC LIMIT ${limit} OFFSET ${offset}`;
       const total = rows[0]?.total_count || 0;
       return json({ items: rows.map(({ total_count, ...b }) => b), total, page, pageSize: limit, pages: Math.ceil(total / limit) });
