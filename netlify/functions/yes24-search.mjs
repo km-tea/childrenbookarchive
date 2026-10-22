@@ -4,7 +4,9 @@ const API_URL = 'https://apis.yes24.com/v1/goods/itemList';
 function cleanAuthor(value) {
   return String(value || '')
     .split('/')[0]
-    .replace(/\s*(?:글\s*·\s*그림|글그림|글)\s*$/u, '')
+    // "홍길동 글", "홍길동 글, 김철수 그림" 등에서 글 작가 이름만 남깁니다.
+    .replace(/\s*(?:글\s*·\s*그림|글그림|글|그림)(?:\s|,|·|$).*$/u, '')
+    .replace(/\s*\([^)]*(?:번역|옮김|그림|글)[^)]*\)\s*$/u, '')
     .trim();
 }
 
