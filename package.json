@@ -1,0 +1,8 @@
+{
+  "name": "fairytale-archive",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {"check": "node --check public/app.js && node --check netlify/functions/books.mjs && node --check netlify/functions/auth.mjs && node --check netlify/functions/yes24-search.mjs"},
+  "dependencies": {"@neondatabase/serverless":"^1.0.2","bcryptjs":"^3.0.2"}
+}
