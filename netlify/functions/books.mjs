@@ -49,14 +49,14 @@ export default async (request) => {
         WHERE (${requestedId}='' OR b.id::text=${requestedId})
           AND (${q}='' OR b.title ILIKE ${'%'+q+'%'} OR b.author ILIKE ${'%'+q+'%'})
           AND (${selectedValue}='' OR (CASE WHEN ${browse}='author' THEN BTRIM(b.author) WHEN ${browse}='publisher' THEN BTRIM(b.publisher) ELSE BTRIM(b.title) END)=${selectedValue})
-          AND (${browse}='all' OR (${browse}='tag' AND (${tag}<>'' OR ${initial}='')) OR (${browse} IN ('author','publisher','initial') AND ${selectedValue}<>''))
+          AND (${browse}='all' OR (${browse}='tag' AND ${tag}<>'') OR (${browse} IN ('author','publisher','initial') AND ${selectedValue}<>''))
           AND (${grades.length}::int=0 OR COALESCE(NULLIF(b.grade_bands,ARRAY[]::text[]),ARRAY[b.grade_band]) && ${grades}::text[])
           AND (${author}='' OR b.author ILIKE ${'%'+author+'%'})
           AND (${publisher}='' OR b.publisher ILIKE ${'%'+publisher+'%'})
           AND (NOT ${mine} OR b.created_by=${viewer?.id || '00000000-0000-0000-0000-000000000000'}::uuid)
           AND (${initialPattern}='' OR (CASE WHEN ${browse}='author' THEN b.author WHEN ${browse}='publisher' THEN b.publisher WHEN ${browse}='tag' THEN '' ELSE b.title END) ~ ${'^'+initialPattern})
           AND (${browse}<>'tag' OR ${tag}<>'' OR ${initialPattern}='' OR EXISTS (SELECT 1 FROM book_tags ibt JOIN tags it ON it.id=ibt.tag_id WHERE ibt.book_id=b.id AND regexp_replace(BTRIM(it.name), '^#+', '') ~ ${'^'+initialPattern}))
-          AND (${tag}='' OR EXISTS (SELECT 1 FROM book_tags bt JOIN tags t ON t.id=bt.tag_id WHERE bt.book_id=b.id AND (LOWER(BTRIM(regexp_replace(t.normalized_name, '^#+', ''))) = LOWER(BTRIM(regexp_replace(${tag}, '^#+', ''))) OR LOWER(BTRIM(regexp_replace(t.name, '^#+', ''))) = LOWER(BTRIM(regexp_replace(${tag}, '^#+', ''))))))
+          AND (${browse}<>'tag' OR EXISTS (SELECT 1 FROM book_tags bt JOIN tags t ON t.id=bt.tag_id WHERE bt.book_id=b.id AND LOWER(BTRIM(REGEXP_REPLACE(t.name, '^#+', ''))) = LOWER(BTRIM(REGEXP_REPLACE(${tag}, '^#+', '')))))
         ORDER BY b.created_at DESC LIMIT ${limit} OFFSET ${offset}`;
       const total = rows[0]?.total_count || 0;
       return json({ items: rows.map(({ total_count, ...b }) => b), total, page, pageSize: limit, pages: Math.ceil(total / limit) });
@@ -68,7 +68,9 @@ export default async (request) => {
     if (request.method === 'DELETE') {
       if (!id) return json({ message: '도서 ID가 필요합니다.' }, 400);
       const rows = await sql`DELETE FROM books WHERE id=${id} AND (${user.role}='admin' OR created_by=${user.id}) RETURNING id`;
-      return rows.length ? json({ ok: true }) : json({ message: '도서를 찾을 수 없거나 수정·삭제 권한이 없습니다.' }, 403);
+      if (!rows.length) return json({ message: '도서를 찾을 수 없거나 수정·삭제 권한이 없습니다.' }, 403);
+      await sql`DELETE FROM tags t WHERE NOT EXISTS (SELECT 1 FROM book_tags bt WHERE bt.tag_id=t.id)`;
+      return json({ ok: true });
     }
     const body = await request.json();
     const title = clean(body.title, 250), author = clean(body.author, 250), publisher = clean(body.publisher, 200);
