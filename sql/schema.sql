@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS books (
   author TEXT NOT NULL,
   publisher TEXT NOT NULL,
   grade_band TEXT NOT NULL CHECK (grade_band IN ('3-4','5-6','middle+')),
+  grade_bands TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
   book_url TEXT NOT NULL,
   summary TEXT NOT NULL DEFAULT '',
   cover_url TEXT NOT NULL DEFAULT '',
@@ -32,6 +33,8 @@ CREATE TABLE IF NOT EXISTS books (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+ALTER TABLE books ADD COLUMN IF NOT EXISTS grade_bands TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];
+UPDATE books SET grade_bands=ARRAY[grade_band] WHERE cardinality(grade_bands)=0;
 CREATE INDEX IF NOT EXISTS books_title_idx ON books (LOWER(title));
 CREATE INDEX IF NOT EXISTS books_author_idx ON books (LOWER(author));
 CREATE INDEX IF NOT EXISTS books_publisher_idx ON books (LOWER(publisher));

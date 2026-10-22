@@ -5,7 +5,8 @@ function cleanAuthor(value) {
   return String(value || '')
     .split('/')[0]
     // "홍길동 글", "홍길동 글, 김철수 그림" 등에서 글 작가 이름만 남깁니다.
-    .replace(/\s*(?:글\s*·\s*그림|글그림|글|그림)(?:\s|,|·|$).*$/u, '')
+    .replace(/\s*(?:글\s*·\s*그림|글그림|글|그림|저|지음|씀)(?:\s|,|·|$).*$/u, '')
+    .replace(/\s+(?:저|지음|씀)[.!]?$/u, '')
     .replace(/\s*\([^)]*(?:번역|옮김|그림|글)[^)]*\)\s*$/u, '')
     .trim();
 }
@@ -30,11 +31,12 @@ export default async (request) => {
     return Response.json({ message: 'Netlify에 YES24_API_KEY 환경변수가 설정되어 있는지 확인해 주세요.', items: [] }, { status: 500 });
   }
 
+  const requestedPage = Math.max(1, Math.min(100, Number(url.searchParams.get('page')) || 1));
   const apiUrl = new URL(API_URL);
   apiUrl.searchParams.set('query', query);
   apiUrl.searchParams.set('category', 'BOOK');
-  apiUrl.searchParams.set('page', '1');
-  apiUrl.searchParams.set('pageSize', '12');
+  apiUrl.searchParams.set('page', String(requestedPage));
+  apiUrl.searchParams.set('pageSize', '5');
   apiUrl.searchParams.set('detail', 'N');
 
   try {
@@ -57,7 +59,7 @@ export default async (request) => {
     }
 
     const rawItems = Array.isArray(payload?.data?.items) ? payload.data.items : [];
-    const items = rawItems.slice(0, 12).map(item => ({
+    const items = rawItems.slice(0, 5).map(item => ({
       itemId: item.itemId ?? null,
       title: item.title ?? '',
       author: cleanAuthor(item.author ?? ''),
@@ -69,7 +71,7 @@ export default async (request) => {
       saleStatus: item.saleStatus ?? item.sellStatus ?? item.status ?? item.stockStatus ?? '',
       isSoldOut: item.isSoldOut === true || item.soldOut === true || item.isSoldout === true || /품절|판매중지|절판/i.test(String(item.saleStatus ?? item.sellStatus ?? item.status ?? item.stockStatus ?? ''))
     }));
-    return Response.json({ items, message: items.length ? '' : '검색 결과가 없습니다. 제목을 조금 바꾸어 다시 검색해 주세요.' }, {
+    return Response.json({ items, page: requestedPage, pageSize: 5, hasMore: rawItems.length >= 5, message: items.length ? '' : '검색 결과가 없습니다. 제목을 조금 바꾸어 다시 검색해 주세요.' }, {
       headers: { 'Cache-Control': 'no-store' }
     });
   } catch (error) {

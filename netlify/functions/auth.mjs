@@ -9,6 +9,12 @@ export default async (request) => {
       const user = await currentUser(request, sql);
       return json({ user: user ? { id: user.id, email: user.email, role: user.role } : null });
     }
+    if (request.method === 'GET' && url.searchParams.get('action') === 'members') {
+      const user = await currentUser(request, sql);
+      if (!user || user.role !== 'admin' || user.email !== '0227kkm@naver.com') return json({ message: '회원관리 권한이 없습니다.' }, 403);
+      const members = await sql`SELECT id,email,role,created_at FROM users ORDER BY created_at DESC` ;
+      return json({ items: members });
+    }
     if (request.method !== 'POST') return json({ message: '지원하지 않는 요청입니다.' }, 405);
     const body = await request.json();
     const action = String(body.action || '');
