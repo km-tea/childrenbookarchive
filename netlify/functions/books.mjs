@@ -26,7 +26,7 @@ export default async (request) => {
       const browse = clean(url.searchParams.get('browse'), 20);
       const initial = clean(url.searchParams.get('initial'), 10);
       const initialRanges = {'ㄱ':'[가-깋]','ㄴ':'[나-닣]','ㄷ':'[다-딯]','ㄹ':'[라-맇]','ㅁ':'[마-밓]','ㅂ':'[바-빟]','ㅅ':'[사-싷]','ㅇ':'[아-잏]','ㅈ':'[자-짛]','ㅊ':'[차-칳]','ㅋ':'[카-킿]','ㅌ':'[타-팋]','ㅍ':'[파-핗]','ㅎ':'[하-힣]'};
-      const initialPattern = initialRanges[initial] || '';
+      const initialPattern = initial === '기타' ? '[A-Za-z]' : (initialRanges[initial] || '');
       const selectedValue = clean(url.searchParams.get('selected'), 250);
       const indexOnly = url.searchParams.get('index') === '1';
       const mine = url.searchParams.get('mine') === '1';
